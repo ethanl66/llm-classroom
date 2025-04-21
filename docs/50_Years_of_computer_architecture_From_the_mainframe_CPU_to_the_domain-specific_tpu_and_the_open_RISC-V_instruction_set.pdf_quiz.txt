@@ -1,0 +1,78 @@
+Here are 10 quiz questions based on the provided content along with a formatted answer key.
+
+### Quiz Questions
+
+1. **What was announced by IBM on April 7, 1964?**
+   - A) iAPX 432
+   - B) System/360
+   - C) VAX-11/780
+   - D) RISC-V
+
+2. **Which microprocessor did Intel release as a successor to the 8080?**
+   - A) iAPX 432
+   - B) 8086
+   - C) System/360
+   - D) VAX-11/780
+
+3. **Which architecture did TCP/IP protocols use as their base?**
+   - A) VLIW
+   - B) CISC
+   - C) RISC
+   - D) Domain-Specific Architectures
+
+4. **What does RISC in RISC-V stand for?**
+   - A) Restructured Instruction Set Computer
+   - B) Reduced Instruction Set Computer
+   - C) Random Instruction Set Computer
+   - D) Regular Instruction Set Computer
+
+5. **What key insight led to the development of RISC architectures?**
+   - A) Complexity of CISC instructions
+   - B) The need for 64-bit processors
+   - C) Speed of microprocessors
+   - D) Demand for personal computers at home
+
+6. **Which of the following is a notable feature of the Google TPU?**
+   - A) Higher power consumption than GPUs
+   - B) Inability to execute deep neural network applications
+   - C) Superior energy efficiency over CPUs and GPUs
+   - D) Complexity comparable to the 8086 architecture
+
+7. **What did Amdahl's Law illustrate about parallel processing?**
+   - A) All tasks can be perfectly parallelized.
+   - B) The speedup of a task is limited by its serial portion.
+   - C) Parallel processing always results in faster performance.
+   - D) More processors lead to infinite speedup.
+
+8. **What was a major failure of the Itanium processor?**
+   - A) It was too inexpensive to manufacture.
+   - B) It failed to meet performance expectations due to scheduling difficulties.
+   - C) It was never released to the public.
+   - D) It did not use VLIW architecture.
+
+9. **What is the primary goal of the RISC-V Foundation?**
+   - A) To promote CISC architectures globally
+   - B) To offer an open, modular ISA for various applications
+   - C) To create proprietary architectures for specific companies
+   - D) To ensure backward compatibility with previous ISAs
+
+10. **What characterized the transition from CISC to RISC architectures in computing?**
+    - A) The introduction of microprogramming
+    - B) A focus on complex instruction sets
+    - C) The simplification of ISAs and pipelined implementations
+    - D) Increase in chip size and complexity
+
+---
+
+### Answer Key
+
+1. B) System/360
+2. B) 8086
+3. C) RISC
+4. B) Reduced Instruction Set Computer
+5. A) Complexity of CISC instructions
+6. C) Superior energy efficiency over CPUs and GPUs
+7. B) The speedup of a task is limited by its serial portion.
+8. B) It failed to meet performance expectations due to scheduling difficulties.
+9. B) To offer an open, modular ISA for various applications
+10. C) The simplification of ISAs and pipelined implementations

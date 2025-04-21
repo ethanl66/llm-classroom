@@ -139,7 +139,7 @@ def quiz(docname, n):
 @click.argument("response_file", type=click.Path(exists=True))
 @click.argument("answer_key_file", type=click.Path(exists=True))
 def grade(response_file, answer_key_file):
-    """Grade quiz responses against the answer key locally"""
+    """<response_file><answer_key_file> Grade quiz responses against the answer key locally"""
     # Parse answer key
     with open(answer_key_file, encoding='utf-8') as f:
         lines = [line.strip() for line in f if line.strip()]
