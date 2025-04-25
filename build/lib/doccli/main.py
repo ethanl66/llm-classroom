@@ -205,30 +205,13 @@ def cli():
 def register(name, email, role):
     """Register a new user: <name> <email> <role>"""
 
-    # ---- BOOTSTRAP: if there are zero admins, allow the first one to be created ----
+    # if you’re not logged in yet, you can only self-register as a student
+    if not is_logged_in() and role != 'student':
+        click.echo("Self-registration is open only for students. Ask an admin to create teacher accounts.")
+        return
+    
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
-    admin_count = c.fetchone()[0]
-    conn.close()
-
-    # if no admins exist yet, allow ANY role (including 'admin') to self-register
-    if admin_count == 0:
-        click.echo("Bootstrapping first admin account…")
-    else:
-        # once we have at least one admin:
-        #  - logged-out users can only self-register as students
-        #  - non-admin logged-in users likewise can only create students
-        if not is_logged_in() and role != 'student':
-            click.echo("Self-registration is open only for students. Ask an admin to create teacher/admin accounts.")
-            return
-        # if logged in but not admin, also only allow student creation
-        if is_logged_in():
-            session = load_session()
-            if session['role'] != 'admin' and role != 'student':
-                click.echo("Only admins may create teacher or admin accounts.")
-                return
-            
 
     if role == 'admin':
         c.execute("SELECT COUNT(*) FROM users WHERE role='admin'")

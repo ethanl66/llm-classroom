@@ -14,3 +14,5 @@ Dynamic: requires-dist
 Dynamic: summary
 
 # EC530-llm-classroom
+cd doccli
+doccli --help
