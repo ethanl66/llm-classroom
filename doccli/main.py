@@ -16,7 +16,13 @@ from pdfminer.high_level import extract_text
 # ——— Configuration ———
 DB_PATH = "metadata.db"
 DOCS_DIR = "docs/"
+QUIZ_DIR = "quizzes/"
+ANS_KEY_DIR = "answer_keys/"
+STUDENT_RESP_DIR = "student_responses/"
 SESSION_FILE = os.path.expanduser("~/.doccli_session")      # Where to persist current session. Store { user_id, name, role } here.
+
+HELP_TEXT_WIDTH = 150
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'], max_content_width=HELP_TEXT_WIDTH)
 
 # ——— Helpers ———
 def init_db():
@@ -126,8 +132,11 @@ class DocCLI(click.Group):
             cmd = self.commands[name]
             cb  = cmd.callback
 
-            # -- always hide login/register once logged in
-            if logged_in and name in ("login","register"):
+            # -- once logged in, hide login for everyone
+            if logged_in and name == "login":
+                continue
+            # -- once logged in, hide register for non-admins, but allow admins
+            if logged_in and name == "register" and role != "admin":
                 continue
             # -- always hide logout when logged out
             if not logged_in and name == "logout":
@@ -156,7 +165,11 @@ class DocCLI(click.Group):
         role = load_session().get('role') if logged_in else None
 
         # same filters as list_commands:
-        if logged_in and name in ("login","register"):
+        # once logged in, disallow login
+        if logged_in and name == "login":
+            return None
+        # once logged in, disallow register for non-admins
+        if logged_in and name == "register" and role != "admin":
             return None
         if not logged_in and name == "logout":
             return None
@@ -174,10 +187,13 @@ class DocCLI(click.Group):
 # ——— CLI Commands ———
 
 # Click should use filtered command list
-@click.group(cls=DocCLI)
+@click.group(cls=DocCLI, context_settings = CONTEXT_SETTINGS)
 def cli():
     """Document Analyzer CLI"""
-    os.makedirs(DOCS_DIR, exist_ok=True)
+    os.makedirs(DOCS_DIR,         exist_ok=True)
+    os.makedirs(QUIZ_DIR,         exist_ok=True)
+    os.makedirs(ANS_KEY_DIR,      exist_ok=True)
+    os.makedirs(STUDENT_RESP_DIR, exist_ok=True)
     init_db()
 
 
@@ -188,6 +204,12 @@ def cli():
 @click.argument('role', type=click.Choice(['teacher','student','admin']))
 def register(name, email, role):
     """Register a new user: <name> <email> <role>"""
+
+    # if you’re not logged in yet, you can only self-register as a student
+    if not is_logged_in() and role != 'student':
+        click.echo("Self-registration is open only for students. Ask an admin to create teacher accounts.")
+        return
+    
     conn = get_db_connection()
     c = conn.cursor()
 
@@ -263,7 +285,7 @@ def logout():
 @require_role(['teacher','admin'])
 @click.argument("file", type=click.Path(exists=True))
 def upload(file):
-    """Upload a document (PDF or plaintext).  Owner is set to the current user."""
+    """Upload a document (PDF or txt).  Owner is set to the current user."""
     # load the session now that we're inside the command
     session = load_session()
     owner   = session['email']
@@ -295,7 +317,7 @@ def summarize(docname):
     
     path = os.path.join(DOCS_DIR, docname)
     if not os.path.exists(path):
-        click.echo("Document not found.")
+        click.echo("Document not found. Are you missing .pdf or .txt?")
         return
     text = get_text(path)
     prompt = f"Summarize this:\n\n{text}"
@@ -330,6 +352,8 @@ def quiz(docname, n):
     prompt = (
       f"Create {n} quiz questions (with multiple‑choice options) "
       f"based on the following content, along with an easily formatted answer key:\n\n{text}"
+      f"\n\nAnswer key format should be:\n"
+      f"1. B) Answer\n"
     )
     response = client.responses.create(
 			model="gpt-4o-mini",
@@ -338,31 +362,46 @@ def quiz(docname, n):
 			#max_tokens=1500
 		)
     response_text = response.output_text
-    click.echo(response_text)
-    
-	# Store the quiz in a file
-    quiz_file = os.path.join(DOCS_DIR, f"{docname}_quiz.txt")
+    # Split out questions vs answer key
+    if "Answer Key" in response_text:
+        questions_part, answer_key_part = response_text.split("Answer Key", 1)
+        answer_key_part = "Answer Key" + answer_key_part
+    else:
+        questions_part = response_text
+        answer_key_part = ""
+
+    # Write the quiz questions
+    quiz_file = os.path.join(QUIZ_DIR, f"{docname}_quiz.txt")
     with open(quiz_file, "w", encoding="utf-8") as f:
-        f.write(response_text)
+        f.write(questions_part.strip())
+        f.write("\n\nAnswer files should be in the format:\nFirst Last, A, B, C, D")
     click.echo(f"Quiz saved to {quiz_file}")
+
+    # Write the answer key (if present)
+    if answer_key_part:
+        ans_file = os.path.join(ANS_KEY_DIR, f"{docname}_answer_key.txt")
+        with open(ans_file, "w", encoding="utf-8") as f:
+            f.write(answer_key_part.strip())
+        click.echo(f"Answer key saved to {ans_file}")
     
 
 
 @cli.command()
 @require_login
 @require_role(['teacher','admin'])
-@click.argument("response_file", type=click.Path(exists=True))
-@click.argument("answer_key_file", type=click.Path(exists=True))
+@click.argument("response_file", type=click.STRING)
+@click.argument("answer_key_file", type=click.STRING)
 def grade(response_file, answer_key_file):
-    """<response_file><answer_key_file> Grade quiz responses against the answer key locally"""
+    """<response_file> <answer_key_file> Grade quiz responses against the answer key"""
     click.echo("Grading quiz responses...")
     # Parse answer key
+    answer_key_file = os.path.join(ANS_KEY_DIR, answer_key_file)
     with open(answer_key_file, encoding='utf-8') as f:
         lines = [line.strip() for line in f if line.strip()]
     #click.echo(f"lines: {lines}")
     # Locate 'Answer Key' section
-    if '### Answer Key' in lines:
-        start = lines.index('### Answer Key') + 1
+    if 'Answer Key' in lines:
+        start = lines.index('Answer Key') + 1
     else:
         start = 0
     key_lines = lines[start:]
@@ -373,6 +412,7 @@ def grade(response_file, answer_key_file):
             letter = line.split(')')[0].strip()
             correct.append(letter.upper())
     # Parse student responses (supports multiple lines)
+    response_file = os.path.join(STUDENT_RESP_DIR, response_file)
     with open(response_file, encoding='utf-8') as f:
         resp_lines = [line.strip() for line in f if line.strip()]
     #click.echo(f"resp_lines: {resp_lines}")
@@ -403,6 +443,84 @@ def list_docs():
     for row in conn.execute("SELECT id, name, owner, timestamp, type FROM documents"):
         click.echo(f"{row[0]} | {row[1]} | {row[2]} | {row[4]} @ {row[3]}")
     conn.close()
+
+
+@cli.command('list-quizzes')
+@require_login
+def list_quizzes():
+    """List all generated quiz files."""
+    # assumes quizzes are saved as <docname>_quiz.txt under DOCS_DIR
+    quizzes = [f for f in os.listdir(QUIZ_DIR) if f.endswith('_quiz.txt')]
+    if not quizzes:
+        click.echo("No quizzes found.")
+        return
+    click.echo("Available quizzes:")
+    for q in quizzes:
+        click.echo(f"  • {q}")
+
+
+@cli.command('read-quiz')
+@require_login
+@click.argument('quiz_filename', type=click.STRING)
+def read_quiz(quiz_filename):
+    """
+    Display the contents of a quiz file.
+    Pass in the exact filename as listed by `list-quizzes`.
+    """
+    path = os.path.join(QUIZ_DIR, quiz_filename)
+    if not os.path.exists(path):
+        click.echo(f"Quiz file not found: {quiz_filename}")
+        return
+    click.echo(f"--- {quiz_filename} ---\n")
+    with open(path, 'r', encoding='utf-8') as f:
+        click.echo(f.read())
+
+
+@cli.command('delete-doc')
+@require_login
+@require_role(['teacher','admin'])
+@click.argument('name', type=click.STRING)
+def delete_doc(name):
+    """
+    Teachers can delete a document by its name, if they are the owner.
+    """
+    # load session to check ownership
+    session = load_session()
+
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    # look up the doc
+    c.execute("SELECT name, owner FROM documents WHERE name = ?", (name,))
+    row = c.fetchone()
+    if not row:
+        click.echo(f"No document found with name {name}.")
+        conn.close()
+        return
+
+    name, owner = row
+
+    # teachers may only delete their own
+    if session['role'] == 'teacher' and owner != session['email']:
+        click.echo("Permission denied: you can only delete documents you own.")
+        conn.close()
+        return
+
+    # remove the file if it exists
+    path = os.path.join(DOCS_DIR, name)
+    if os.path.exists(path):
+        os.remove(path)
+
+    # remove the metadata row
+    c.execute("DELETE FROM documents WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()
+
+    click.echo(f"Deleted document ({name}).")
+
+
+
+
 
 
 if __name__ == "__main__":
