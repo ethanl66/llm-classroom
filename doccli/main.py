@@ -338,7 +338,7 @@ def grade(response_file, answer_key_file):
 
 @cli.command()
 @require_login
-def list_docs():
+def list_docs(session):
     """List uploaded documents"""
     conn = sqlite3.connect(DB_PATH)
     for row in conn.execute("SELECT id, name, owner, timestamp, type FROM documents"):

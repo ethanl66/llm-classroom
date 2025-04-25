@@ -1,0 +1,10 @@
+README.md
+setup.py
+doccli/__init__.py
+doccli/main.py
+doccli.egg-info/PKG-INFO
+doccli.egg-info/SOURCES.txt
+doccli.egg-info/dependency_links.txt
+doccli.egg-info/entry_points.txt
+doccli.egg-info/requires.txt
+doccli.egg-info/top_level.txt
