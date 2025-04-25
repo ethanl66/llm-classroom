@@ -1,7 +1,0 @@
-Answer Key
-
-1. B) To spur advances in information systems and technologies  
-2. B) It represents the interests of the semiconductor industry and promotes U.S. leadership.  
-3. B) Power demands for high-performance computing systems are anticipated to become unsustainable.  
-4. B) Managing the rapid growth of data and the need for memory and storage.  
-5. C) They combine computation with control of physical entities and demand new designs focused on safety.
