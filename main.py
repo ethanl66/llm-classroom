@@ -4,6 +4,10 @@ import sqlite3
 import datetime
 import click
 from openai import OpenAI
+import json
+import getpass
+import hashlib
+import functools
 
 # PDF text extraction
 from pdfminer.high_level import extract_text
@@ -11,6 +15,7 @@ from pdfminer.high_level import extract_text
 # ——— Configuration ———
 DB_PATH = "metadata.db"
 DOCS_DIR = "docs/"
+SESSION_FILE = os.path.expanduser("~/.doccli_session")      # Where to persist current session. Store { user_id, name, role } here.
 
 # ——— Helpers ———
 def init_db():
@@ -25,12 +30,24 @@ def init_db():
       type TEXT,
       summary TEXT
     )""")
+    # Users table
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY,
+      name TEXT,
+      email TEXT UNIQUE,
+      role TEXT,
+      password_hash TEXT
+    )""")
     conn.commit()
     conn.close()
 
 
+def get_db_connection():
+    return sqlite3.connect(DB_PATH)
+
 def save_metadata(name, owner, doc_type):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute(
       "INSERT INTO documents (name, owner, timestamp, type) VALUES (?, ?, ?, ?)",
@@ -50,17 +67,152 @@ def get_text(path):
             return f.read()
 
 
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+
+# Check if session file exists and load it
+def load_session():
+    if not os.path.exists(SESSION_FILE):
+        click.echo("Not logged in. Please `login` first.")
+        raise click.Abort()
+    with open(SESSION_FILE, 'r') as f:
+        return json.load(f)
+
+
+# Decorator: Wrap CLI commands to require login. Pass session as first argument.
+def require_login(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # abort if not logged in
+        session = load_session()
+        return func(session, *args, **kwargs)
+    return wrapper
+
+
+def is_logged_in():
+    return os.path.exists(SESSION_FILE)
+
+
+# Decorator factory: Check if user's role is in the allow list.
+def require_role(roles):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(session, *args, **kwargs):
+            if session.get('role') not in roles:
+                click.echo(f"Permission denied: requires one of {roles}.")
+                raise click.Abort()
+            return func(session, *args, **kwargs)
+        return wrapper
+    return decorator
+
+
+# ——— Custom Group to Filter Commands ———
+class DocCLI(click.Group):
+    def list_commands(self, ctx):
+        cmds = super().list_commands(ctx)
+        if is_logged_in():
+            # once logged in, hide login & register
+            return [c for c in cmds if c not in ("login", "register")]
+        else:
+            # when logged out, hide logout
+            return [c for c in cmds if c != "logout"]
+    
+    def get_command(self, ctx, name):
+        # enforce the same filter on direct invocation
+        if is_logged_in() and name in ("login", "register"):
+            return None
+        if not is_logged_in() and name == "logout":
+            return None
+        return super().get_command(ctx, name)
+    
+
 # ——— CLI Commands ———
-@click.group()
+
+@click.group(cls=DocCLI)
 def cli():
     """Document Analyzer CLI"""
     os.makedirs(DOCS_DIR, exist_ok=True)
     init_db()
 
 
+# Register: Prompt and check password. Hash and store user info with unique email.
 @cli.command()
+@click.argument('name')
+@click.argument('email')
+@click.argument('role', type=click.Choice(['teacher','student','admin']))
+def register(name, email, role):
+    """Register a new user: <name> <email> <role>"""
+    conn = get_db_connection()
+    c = conn.cursor()
+
+    if role == 'admin':
+        c.execute("SELECT COUNT(*) FROM users WHERE role='admin'")
+        if c.fetchone()[0] > 0:
+            click.echo('An admin already exists. Cannot register another admin.')
+            conn.close()
+            return
+
+    password = getpass.getpass('Password: ')
+    confirm = getpass.getpass('Confirm Password: ')
+    if password != confirm:
+        click.echo('Passwords do not match.')
+        return
+    pwd_hash = hash_password(password)
+    try:
+        c.execute(
+            "INSERT INTO users (name,email,role,password_hash) VALUES (?,?,?,?)",
+            (name,email,role,pwd_hash)
+        )
+        conn.commit()
+        click.echo(f"User {name} ({role}) registered.")
+    except sqlite3.IntegrityError:
+        click.echo('Error: email already registered.')
+    finally:
+        conn.close()
+
+
+# Login: Look up user by email, check password, and store session info.
+@cli.command()
+@click.argument('email')
+def login(email):
+    """Log in as existing user"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT id,name,role,password_hash FROM users WHERE email=?", (email,))
+    row = c.fetchone()
+    conn.close()
+    if not row:
+        click.echo('User not found.')
+        return
+    user_id,name,role,pwd_hash = row
+    password = getpass.getpass('Password: ')
+    if hash_password(password) != pwd_hash:
+        click.echo('Invalid password.')
+        return
+    session = {'user_id': user_id, 'name': name, 'role': role}
+    with open(SESSION_FILE,'w') as f:
+        json.dump(session, f)
+    click.echo(f"Logged in as {name} ({role}).")
+
+
+# Logout: Remove session file.
+@cli.command()
+def logout():
+    """Log out current user"""
+    if os.path.exists(SESSION_FILE):
+        os.remove(SESSION_FILE)
+        click.echo('Logged out.')
+    else:
+        click.echo('Not logged in.')
+
+
+
+@cli.command()
+@require_login
+@require_role(['teacher','admin'])
 @click.argument("file", type=click.Path(exists=True))
-@click.option("--owner", default="teacher@example.com")
+#@click.option("--owner", default="teacher@example.com")
 def upload(file, owner):
     """Upload a document (PDF or plaintext)"""
     ext = os.path.splitext(file)[1].lower()
@@ -74,6 +226,7 @@ def upload(file, owner):
 
 
 @cli.command()
+@require_login
 @click.argument("docname")
 def summarize(docname):
     """Generate a summary via OpenAI"""
@@ -99,10 +252,12 @@ def summarize(docname):
 
 
 @cli.command()
+@require_login
+@require_role(['teacher','admin'])
 @click.argument("docname")
 @click.option("--n", default=5, help="Number of quiz questions")
 def quiz(docname, n):
-    """Auto‑generate a quiz"""
+    """<docname> <num questions> Auto‑generate a quiz"""
     click.echo(f"Generating {n} quiz questions for {docname}...")
     client = OpenAI(
 			# This is the default and can be omitted
@@ -136,6 +291,8 @@ def quiz(docname, n):
 
 
 @cli.command()
+@require_login
+@require_role(['teacher','admin'])
 @click.argument("response_file", type=click.Path(exists=True))
 @click.argument("answer_key_file", type=click.Path(exists=True))
 def grade(response_file, answer_key_file):
@@ -180,6 +337,7 @@ def grade(response_file, answer_key_file):
 
 
 @cli.command()
+@require_login
 def list_docs():
     """List uploaded documents"""
     conn = sqlite3.connect(DB_PATH)
