@@ -1,78 +1,62 @@
-Here are 10 quiz questions based on the provided content along with a formatted answer key.
+Here are 8 quiz questions based on the provided content, along with an answer key.
 
 ### Quiz Questions
 
-1. **What was announced by IBM on April 7, 1964?**
-   - A) iAPX 432
-   - B) System/360
-   - C) VAX-11/780
+1. **What major event did IBM announce on April 7, 1964?**
+   - A) Launch of the VAX-11/780
+   - B) Introduction of the IBM System/360
+   - C) Release of the Intel 8086
+   - D) Development of RISC-V
+
+2. **What architecture is described as having a base ISA that is modular?**
+   - A) CISC
+   - B) VLIW
+   - C) RISC
    - D) RISC-V
 
-2. **Which microprocessor did Intel release as a successor to the 8080?**
-   - A) iAPX 432
-   - B) 8086
-   - C) System/360
-   - D) VAX-11/780
+3. **What does "Moore's Law" refer to?**
+   - A) The growth rate of microprocessors
+   - B) The compatibility of various assembler languages
+   - C) The size of instruction set architectures
+   - D) The speed of control processing in microcomputers
 
-3. **Which architecture did TCP/IP protocols use as their base?**
-   - A) VLIW
+4. **Which architecture is known for executing fewer clock cycles per instruction on average?**
+   - A) RISC
    - B) CISC
+   - C) VLIW
+   - D) Domain-Specific Architecture (DSA)
+
+5. **What unique feature does the Google TPU utilize to improve efficiency in deep neural network inference?**
+   - A) Complex microinstructions
+   - B) 16-bit floating point calculations
+   - C) Systolic execution and 8-bit integer calculations
+   - D) Multi-threaded programs
+
+6. **Which of the following ISAs was noted as being designed to accommodate a range of computing devices from small to large?**
+   - A) ARM
+   - B) x86
    - C) RISC
-   - D) Domain-Specific Architectures
+   - D) RISC-V
 
-4. **What does RISC in RISC-V stand for?**
-   - A) Restructured Instruction Set Computer
-   - B) Reduced Instruction Set Computer
-   - C) Random Instruction Set Computer
-   - D) Regular Instruction Set Computer
+7. **What is one reason cited for the failure of the Itanium processor?**
+   - A) It was too inexpensive.
+   - B) It could not handle predictable branches effectively.
+   - C) It was released ahead of its time.
+   - D) It lacked support from multiple companies.
 
-5. **What key insight led to the development of RISC architectures?**
-   - A) Complexity of CISC instructions
-   - B) The need for 64-bit processors
-   - C) Speed of microprocessors
-   - D) Demand for personal computers at home
-
-6. **Which of the following is a notable feature of the Google TPU?**
-   - A) Higher power consumption than GPUs
-   - B) Inability to execute deep neural network applications
-   - C) Superior energy efficiency over CPUs and GPUs
-   - D) Complexity comparable to the 8086 architecture
-
-7. **What did Amdahl's Law illustrate about parallel processing?**
-   - A) All tasks can be perfectly parallelized.
-   - B) The speedup of a task is limited by its serial portion.
-   - C) Parallel processing always results in faster performance.
-   - D) More processors lead to infinite speedup.
-
-8. **What was a major failure of the Itanium processor?**
-   - A) It was too inexpensive to manufacture.
-   - B) It failed to meet performance expectations due to scheduling difficulties.
-   - C) It was never released to the public.
-   - D) It did not use VLIW architecture.
-
-9. **What is the primary goal of the RISC-V Foundation?**
-   - A) To promote CISC architectures globally
-   - B) To offer an open, modular ISA for various applications
-   - C) To create proprietary architectures for specific companies
-   - D) To ensure backward compatibility with previous ISAs
-
-10. **What characterized the transition from CISC to RISC architectures in computing?**
-    - A) The introduction of microprogramming
-    - B) A focus on complex instruction sets
-    - C) The simplification of ISAs and pipelined implementations
-    - D) Increase in chip size and complexity
-
----
+8. **What does Amdahl's Law state regarding parallelism?**
+   - A) Parallelism can improve performance indefinitely.
+   - B) The sequential part of a task limits speedup from parallelism.
+   - C) More processors guarantee better performance.
+   - D) All tasks can be perfectly parallelized.
 
 ### Answer Key
 
-1. B) System/360
-2. B) 8086
-3. C) RISC
-4. B) Reduced Instruction Set Computer
-5. A) Complexity of CISC instructions
-6. C) Superior energy efficiency over CPUs and GPUs
-7. B) The speedup of a task is limited by its serial portion.
-8. B) It failed to meet performance expectations due to scheduling difficulties.
-9. B) To offer an open, modular ISA for various applications
-10. C) The simplification of ISAs and pipelined implementations
+1. B) Introduction of the IBM System/360
+2. D) RISC-V
+3. A) The growth rate of microprocessors
+4. A) RISC
+5. C) Systolic execution and 8-bit integer calculations
+6. D) RISC-V
+7. B) It could not handle predictable branches effectively.
+8. B) The sequential part of a task limits speedup from parallelism.

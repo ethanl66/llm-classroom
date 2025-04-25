@@ -8,6 +8,7 @@ import json
 import getpass
 import hashlib
 import functools
+import shutil
 
 # PDF text extraction
 from pdfminer.high_level import extract_text
@@ -80,13 +81,14 @@ def load_session():
         return json.load(f)
 
 
-# Decorator: Wrap CLI commands to require login. Pass session as first argument.
+# Decorator: Wrap CLI commands to require login (no extra args)
 def require_login(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         # abort if not logged in
-        session = load_session()
-        return func(session, *args, **kwargs)
+        load_session()
+        return func(*args, **kwargs)
+    wrapper.requires_login = True
     return wrapper
 
 
@@ -94,18 +96,18 @@ def is_logged_in():
     return os.path.exists(SESSION_FILE)
 
 
-# Decorator factory: Check if user's role is in the allow list.
+# Decorator factory: Check if user's role is in the allow list (no extra args)
 def require_role(roles):
     def decorator(func):
         @functools.wraps(func)
-        def wrapper(session, *args, **kwargs):
+        def wrapper(*args, **kwargs):
+            session = load_session()
             if session.get('role') not in roles:
                 click.echo(f"Permission denied: requires one of {roles}.")
                 raise click.Abort()
-            return func(session, *args, **kwargs)
-        # this command needs login + specific roles
+            return func(*args, **kwargs)
         wrapper.requires_login = True
-        wrapper.roles = set(roles)
+        wrapper.roles          = set(roles)
         return wrapper
     return decorator
 
@@ -233,7 +235,12 @@ def login(email):
     if hash_password(password) != pwd_hash:
         click.echo('Invalid password.')
         return
-    session = {'user_id': user_id, 'name': name, 'role': role}
+    session = {
+    'user_id': user_id,
+    'name':    name,
+    'email':   email,   
+    'role':    role
+    }
     with open(SESSION_FILE,'w') as f:
         json.dump(session, f)
     click.echo(f"Logged in as {name} ({role}).")
@@ -255,17 +262,24 @@ def logout():
 @require_login
 @require_role(['teacher','admin'])
 @click.argument("file", type=click.Path(exists=True))
-#@click.option("--owner", default="teacher@example.com")
-def upload(file, owner):
-    """Upload a document (PDF or plaintext)"""
+def upload(file):
+    """Upload a document (PDF or plaintext).  Owner is set to the current user."""
+    # load the session now that we're inside the command
+    session = load_session()
+    owner   = session['email']
+
     ext = os.path.splitext(file)[1].lower()
     if ext not in ['.pdf', '.txt']:
         click.echo("Unsupported file type. Only .pdf and .txt are allowed.")
         return
+
     dest = os.path.join(DOCS_DIR, os.path.basename(file))
-    os.replace(file, dest)
+    # copy original into docs/ (doesn’t delete the source)
+    shutil.copy2(file, dest)
+
+    # now record with the real owner
     save_metadata(os.path.basename(file), owner, ext)
-    click.echo(f"Uploaded {dest} and metadata recorded.")
+    click.echo(f"Uploaded {dest} (owner: {owner}).")
 
 
 @cli.command()
@@ -273,6 +287,7 @@ def upload(file, owner):
 @click.argument("docname")
 def summarize(docname):
     """Generate a summary via OpenAI"""
+    click.echo("Generating summary...")
     client = OpenAI(
 			# This is the default and can be omitted
 			api_key=os.environ.get("OPENAI_API_KEY"),
@@ -283,7 +298,7 @@ def summarize(docname):
         click.echo("Document not found.")
         return
     text = get_text(path)
-    prompt = f"Summarize this for a teacher:\n\n{text}"
+    prompt = f"Summarize this:\n\n{text}"
     response = client.responses.create(
 			model="gpt-4o-mini",
 			input=prompt,
@@ -340,6 +355,7 @@ def quiz(docname, n):
 @click.argument("answer_key_file", type=click.Path(exists=True))
 def grade(response_file, answer_key_file):
     """<response_file><answer_key_file> Grade quiz responses against the answer key locally"""
+    click.echo("Grading quiz responses...")
     # Parse answer key
     with open(answer_key_file, encoding='utf-8') as f:
         lines = [line.strip() for line in f if line.strip()]
@@ -381,7 +397,7 @@ def grade(response_file, answer_key_file):
 
 @cli.command()
 @require_login
-def list_docs(session):
+def list_docs():
     """List uploaded documents"""
     conn = sqlite3.connect(DB_PATH)
     for row in conn.execute("SELECT id, name, owner, timestamp, type FROM documents"):
