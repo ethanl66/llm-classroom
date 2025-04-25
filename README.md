@@ -36,6 +36,62 @@ Leverages OpenAI to automatically summarize documents, generate quizzes & answer
 
 ---
 
+## Installation
+1) Clone and Install<br>
+   ```
+   git clone https://github.com/ethanl66/llm-classroom.git
+   cd llm-classroom
+   pip install --upgrade pip setuptools wheel
+   pip install -e .
+   ```
+   Run `doccli --help`
+
+---
+
+## Usage
+All commands enfore login/session state and role permissions.
+- **Account Management**
+  ```
+  # Public self-register as a student
+  $ doccli register "Alice Student" alice@school.com student
+  
+  # Admins (already logged in) can create teacher accounts:
+  $ doccli register "Bob Teacher" bob@school.com teacher
+  
+  # Log in & out
+  $ doccli login alice@school.com
+  $ doccli logout
+  ```
+- **Document Workflows**
+  ```
+  # Upload (teacher/admin only)
+  $ doccli upload syllabus.pdf
+  
+  # Summarize (any logged-in user)
+  $ doccli summarize syllabus.pdf
+  
+  # Generate a quiz + answer key (teacher/admin only)
+  $ doccli quiz syllabus.pdf --n 5
+  
+  # List uploaded docs
+  $ doccli list-docs
+  
+  # List quizzes
+  $ doccli list-quizzes
+  
+  # View a quiz
+  $ doccli read-quiz syllabus_quiz.txt
+  
+  # Grade student responses (teacher/admin only)
+  $ # put responses.txt in student_responses/
+  $ doccli grade responses.txt syllabus_answer_key.txt
+  
+  # Delete a document by name (teacher/admin only)
+  $ doccli delete-doc syllabus.pdf
+  ```
+
+---
+
 ## Requirements
 
 - Python ≥ 3.7  
