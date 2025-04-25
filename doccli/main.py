@@ -103,6 +103,9 @@ def require_role(roles):
                 click.echo(f"Permission denied: requires one of {roles}.")
                 raise click.Abort()
             return func(session, *args, **kwargs)
+        # this command needs login + specific roles
+        wrapper.requires_login = True
+        wrapper.roles = set(roles)
         return wrapper
     return decorator
 
@@ -110,25 +113,65 @@ def require_role(roles):
 # ——— Custom Group to Filter Commands ———
 class DocCLI(click.Group):
     def list_commands(self, ctx):
-        cmds = super().list_commands(ctx)
-        if is_logged_in():
-            # once logged in, hide login & register
-            return [c for c in cmds if c not in ("login", "register")]
-        else:
-            # when logged out, hide logout
-            return [c for c in cmds if c != "logout"]
+        all_cmds = super().list_commands(ctx)
+        filtered = []
+        logged_in = is_logged_in()
+        role = None
+        if logged_in:
+            role = load_session().get('role')
+
+        for name in all_cmds:
+            cmd = self.commands[name]
+            cb  = cmd.callback
+
+            # -- always hide login/register once logged in
+            if logged_in and name in ("login","register"):
+                continue
+            # -- always hide logout when logged out
+            if not logged_in and name == "logout":
+                continue
+
+            # -- hide any command requiring login if not logged in
+            if not logged_in and getattr(cb, 'requires_login', False):
+                continue
+
+            # -- hide any command requiring a role the user doesn't have
+            roles_required = getattr(cb, 'roles', None)
+            if roles_required and role not in roles_required:
+                continue
+
+            filtered.append(name)
+        return filtered
+        
     
     def get_command(self, ctx, name):
-        # enforce the same filter on direct invocation
-        if is_logged_in() and name in ("login", "register"):
+        cmd = super().get_command(ctx, name)
+        if not cmd:
             return None
-        if not is_logged_in() and name == "logout":
+
+        cb = cmd.callback
+        logged_in = is_logged_in()
+        role = load_session().get('role') if logged_in else None
+
+        # same filters as list_commands:
+        if logged_in and name in ("login","register"):
             return None
-        return super().get_command(ctx, name)
+        if not logged_in and name == "logout":
+            return None
+
+        if not logged_in and getattr(cb, 'requires_login', False):
+            return None
+
+        roles_required = getattr(cb, 'roles', None)
+        if roles_required and role not in roles_required:
+            return None
+
+        return cmd
     
 
 # ——— CLI Commands ———
 
+# Click should use filtered command list
 @click.group(cls=DocCLI)
 def cli():
     """Document Analyzer CLI"""
