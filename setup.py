@@ -9,6 +9,11 @@ setup(
         "openai",
         "pdfminer.six",
     ],
+	extras_require={
+		"dev": [
+			"pytest",
+        ]
+    }
     entry_points={
         "console_scripts": [
             # format: "<command-name>=<module.path>:<callable>"
